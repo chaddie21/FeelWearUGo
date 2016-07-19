@@ -165,13 +165,17 @@ Usage:
         public void onSwipeUp() {
         }
 
-        public void onSwipeDown() {
+        public void onSwipeDown()
+        {
         }
     }
     private final String URL_TO_HIT = "http://104.155.128.82";
+    private String URL_TO_HIT2 = "http://104.155.128.82/ids/?";
     private final static String TAG = "Main-Activity";
+
     private final int REQ_CODE_SPEECH_INPUT = 100;
     private final int REQ_CODE_SPEECH_INPUT2= 101;
+    private final int REQ_CODE_SPEECH_INPUT3= 102;
     private BroadcastReceiver receiver;
     private Button speakButton;
     public String spokenWords;
@@ -250,24 +254,30 @@ Usage:
                         }
 
                         public void onSwipeLeft() {
-                            Intent sendText = new Intent(Intent.ACTION_VIEW);
+                            speakString("source node ID");
+                            URL_TO_HIT2 = URL_TO_HIT2+"a=100"+"&";
+                            //speechInput();
+                            //TODO:
+//                            Intent sendText = new Intent(Intent.ACTION_VIEW);
 
-                            try {
-                                SmsManager smsManager = SmsManager.getDefault();
-                                smsManager.sendTextMessage("4735768", null, "Reach", null, null);
-                                speakString("message sent");
-                                Log.i(TAG, "sms failed");
-                                Toast.makeText(getApplicationContext(), "SMS SENT", Toast.LENGTH_LONG).show();
-                            } catch (Exception e) {
-                                Toast.makeText(getApplicationContext(), "SMS FAILED!", Toast.LENGTH_LONG).show();
-                                Log.i(TAG, "sms failed");
-                                speakString("message failed");
-                                e.printStackTrace();
-                            }
+//                            try {
+//                                SmsManager smsManager = SmsManager.getDefault();
+//                                smsManager.sendTextMessage("4735768", null, "Reach", null, null);
+//                                speakString("message sent");
+//                                Log.i(TAG, "sms failed");
+//                                Toast.makeText(getApplicationContext(), "SMS SENT", Toast.LENGTH_LONG).show();
+//                            } catch (Exception e) {
+//                                Toast.makeText(getApplicationContext(), "SMS FAILED!", Toast.LENGTH_LONG).show();
+//                                Log.i(TAG, "sms failed");
+//                                speakString("message failed");
+//                                e.printStackTrace();
+//                            }
                         }
                         public void onSwipeRight(){
-                            speakString("Where are you?");
-                            speechInput2();
+                            URL_TO_HIT2 += "b=96";
+                            new ConnectionTask().execute(URL_TO_HIT2);
+                            speakString("target node ID");
+                            //speechInput2();
                         }
                     }
             );
@@ -445,6 +455,7 @@ Usage:
         //final int REQ_CODE_SEND_SPEECH_STRING = 10;
 
         switch (requestCode) {
+
             case REQ_CODE_SPEECH_INPUT: {
                 if (resultCode == RESULT_OK && null != data) {
 
@@ -453,50 +464,53 @@ Usage:
 
                     spokenWords = result.get(0);
                     speakString(spokenWords);
+                    speakString("did you say node ID" +spokenWords);
                     sendSpokenWords.putExtra("SpokenWords",spokenWords);
                     sendBroadcast(sendSpokenWords);
-                    setEndNode(spokenWords);
-                    //--------------PATHFINDER-----------------------------------
-                    //String ped1 = "Student Services";
-                    /*try{
-                        uwiMap.setEndVertexViaName(spokenWords);
-                    }catch (NullPointerException n){
-                        speakString("Place Currently Not on the Map");
-                        Log.d("UWIMAP:","No such vertex exist");
-                    }
-                    PathFinder pF = new PathFinder();
-                    Log.d("pathText", "HERE!");
-                    Log.d("pathTest", pF.getPath().toString());
-                    */
-                    //-----------------------------------------------------------
-
-                    /*runOnUiThread(new Runnable() {
-                        public void run()
-                        {
-                            Toast.makeText(getApplicationContext(),spokenWords+"?", Toast.LENGTH_SHORT).show();
-                        }
-                    });*/
+                    URL_TO_HIT2 = URL_TO_HIT2+"a="+spokenWords+"&";
+                    //setEndNode(spokenWords);
 
 
+//                    --------------PATHFINDER-----------------------------------
+//                    String ped1 = "Student Services";
+//                    /*try{
+//                        uwiMap.setEndVertexViaName(spokenWords);
+//                    }catch (NullPointerException n){
+//                        speakString("Place Currently Not on the Map");
+//                        Log.d("UWIMAP:","No such vertex exist");
+//                    }
+//                    PathFinder pF = new PathFinder();
+//                    Log.d("pathText", "HERE!");
+//                    Log.d("pathTest", pF.getPath().toString());
+//                    */
+//                    -----------------------------------------------------------
+
+//                    /*runOnUiThread(new Runnable() {
+//                        public void run()
+//                        {
+//                            Toast.makeText(getApplicationContext(),spokenWords+"?", Toast.LENGTH_SHORT).show();
+//                        }
+//                    });*/
                 }
                 break;
             }
+
             case REQ_CODE_SPEECH_INPUT2: {
                 if (resultCode == RESULT_OK && null != data) {
 
                     ArrayList<String> result = data
                             .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-
                     spokenWords = result.get(0);
-                    speakString("did you say you are at" +spokenWords);
-                    setStartNode(spokenWords);
+                    speakString("did you say target node ID" +spokenWords);
+                    URL_TO_HIT2 += "b="+spokenWords;
+                    new ConnectionTask().execute(URL_TO_HIT2);
+                    //setStartNode(spokenWords);
+
                 }
                 break;
             }
         }
     }
-
-
 
     private void setEndNode(String nameOfNode){
 
@@ -528,8 +542,7 @@ Usage:
         }
     }
 
-
-    @SuppressWarnings("deprecations")
+       @SuppressWarnings("deprecations")
     public void speakString( String string) {
         ttObj.speak(string,TextToSpeech.QUEUE_FLUSH,null);
     }
@@ -577,6 +590,7 @@ Usage:
             startService(new Intent(this,
                     StepService.class));
         }
+
         private void startStepService(){
             Thread StepServiceThread = new Thread(null,backgroundStepService, "StepService_Background");
             StepServiceThread.start();
