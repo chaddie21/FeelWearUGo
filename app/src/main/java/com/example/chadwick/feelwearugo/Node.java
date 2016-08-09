@@ -1,14 +1,14 @@
 package com.example.chadwick.feelwearugo;
 
+import android.annotation.SuppressLint;
 import android.location.Location;
 
-import java.util.ArrayList;
 
 /**
  * Created by Chadwick on 3/3/2015.
  */
+@SuppressLint("ParcelCreator")
 public class Node extends Location implements Comparable{
-
         public int node_id;
         public String name;
         public int[] nextNodes;

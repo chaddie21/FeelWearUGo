@@ -7,6 +7,8 @@ package com.example.chadwick.feelwearugo;
 
 import android.location.Location;
 import android.util.Log;
+
+import org.jgrapht.UndirectedGraph;
 import org.jgrapht.graph.*;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,7 +27,25 @@ public class UWIMap {
     boolean atANodeOnMap;
     private static UWIMap uwiMap = null;
     protected UWIMap tempMap = null;
-    public Node currentNode;
+    public static Node currentNode;
+
+    public Node node;
+    public Node previousNode;
+    public Edge edge;
+    public static int indx2;
+
+    public static ArrayList<Node> nodeStack;
+    public static ArrayList<Node> nodesOnMap;
+    public static ArrayList<Edge> edgesOnMap;
+    public static ArrayList<DefaultWeightedEdge> edgeList;
+    //_______________________________________________________________________
+    public static boolean isAtANode= false;
+    //___________________VARIABLES FOR DS PROCESSING_________________________
+    private static int lastNodeId;
+    private static int lastEdgeId;
+//    private static ArrayList<Edge> edgesFromDB;
+//    private static ArrayList<Node> nodesFromDB;
+
 
 
     private UWIMap(){}
@@ -37,84 +57,134 @@ public class UWIMap {
         if (uwiMap == null) {
             //--------------------------UWIMap Init-----------------------------------------------------
             uwiMap = new UWIMap();
+            indx2 = 0;
+            //TODO: ConnectTask- retrieve nodes from DB and then add to NodesOnMap Static List
+            //TODO: RetrieveEdgeTask - retrieves edges from dB
+            //TODO: Model2Graph - Add Graph edges and reverse edges
             uwiMap.graph = new SimpleWeightedGraph<Node, DefaultWeightedEdge>(DefaultWeightedEdge.class);
-
+            //Retrieve Nodes
+            new ConnectionTask().execute("");
+            //Convert node data model to graph
+            uwiMap.node2Vertex();
+            //Retrieve edges
+            new RetreiveEdgeTask().execute("");
+            //convert edge data model to graph
+            uwiMap.modelEdge2GraphEdge();
 
             //----------------------Graph Construction -------------------------------------------------
 
-            //----------------------------Vertices--------------------------------------------------
-
-            Node assemblyHall = new Node(18.00542586, -76.74743291,"assembly hall",null, false,false);
-            uwiMap.graph.addVertex(assemblyHall);
-
-            Node admissions = new Node(18.005958, -76.74738, "admissions", null, false,false);
-            uwiMap.graph.addVertex(admissions);
-
-            Node undercoft = new Node(18.006003, -76.747264, "undercroft", null, false,false);
-            uwiMap.graph.addVertex(undercoft);
-
-            Node studentServices = new Node(18.005742, -76.747603, "student services", null, false,false);
-            uwiMap.graph.addVertex(studentServices);
-
-            Node inFrontOfStudentServices = new Node(18.005723, -76.747586, "infss", null, false, false);
-            uwiMap.graph.addVertex(inFrontOfStudentServices);
-
-            Node fieldInt1 = new Node(18.005682, -76.747846, "fi", null, false,false);
-            uwiMap.graph.addVertex(fieldInt1);
-
-            Node queenswayInt1 = new Node(18.005662, -76.747419, "q1", null, false,false);
-            uwiMap.graph.addVertex(queenswayInt1);
-
-            Node queenswayInt3 = new Node(18.005454, -76.747713, "q3", null, false, false);
-            uwiMap.graph.addVertex(queenswayInt3);
-
-            Node ped1 = new Node(18.005596, -76.748408, "ped1",null,true,true);
-            uwiMap.graph.addVertex(ped1);
-
-
-
-            // ----------------------------------Edges------------------------------------------------------------
-
-            DefaultWeightedEdge qw3ToAssemb =uwiMap.graph.addEdge(queenswayInt3,assemblyHall);
-            uwiMap.graph.setEdgeWeight(qw3ToAssemb, queenswayInt3.distanceTo(assemblyHall));
-
-            DefaultWeightedEdge adminToUnderCroft = uwiMap.graph.addEdge(admissions, undercoft);
-            uwiMap.graph.setEdgeWeight(adminToUnderCroft, admissions.distanceTo(undercoft));
-
-            DefaultWeightedEdge adminToStudentServices = uwiMap.graph.addEdge(admissions,studentServices);
-            uwiMap.graph.setEdgeWeight(adminToStudentServices, admissions.distanceTo(studentServices));
-
-            DefaultWeightedEdge ssToinFrontofsservice = uwiMap.graph.addEdge(inFrontOfStudentServices, studentServices);
-            uwiMap.graph.setEdgeWeight(ssToinFrontofsservice, studentServices.distanceTo(inFrontOfStudentServices));
-
-            DefaultWeightedEdge i1Toss = uwiMap.graph.addEdge(fieldInt1, inFrontOfStudentServices);
-            uwiMap.graph.setEdgeWeight(i1Toss, fieldInt1.distanceTo(inFrontOfStudentServices));
-
-            DefaultWeightedEdge ssToqw3 = uwiMap.graph.addEdge(inFrontOfStudentServices, queenswayInt1);
-            uwiMap.graph.setEdgeWeight(ssToqw3, inFrontOfStudentServices.distanceTo(queenswayInt1));
-
-            DefaultWeightedEdge qw1Toqw3 = uwiMap.graph.addEdge(queenswayInt1, queenswayInt3);
-            uwiMap.graph.setEdgeWeight(qw1Toqw3, queenswayInt1.distanceTo(queenswayInt3));
-
-            DefaultWeightedEdge fieldInt1ToPed1 = uwiMap.graph.addEdge(ped1, fieldInt1);
-            uwiMap.graph.setEdgeWeight(fieldInt1ToPed1, ped1.distanceTo(fieldInt1));
-
-            DefaultWeightedEdge fieldInt1ToQw3 = uwiMap.graph.addEdge(queenswayInt3, fieldInt1);
-            uwiMap.graph.setEdgeWeight(fieldInt1ToQw3, queenswayInt1.distanceTo(fieldInt1));
+//            //----------------------------Vertices--------------------------------------------------
+//
+//            Node assemblyHall = new Node(18.00542586, -76.74743291,"assembly hall",null, false,false);
+//            uwiMap.graph.addVertex(assemblyHall);
+//
+//            Node admissions = new Node(18.005958, -76.74738, "admissions", null, false,false);
+//            uwiMap.graph.addVertex(admissions);
+//
+//            Node undercoft = new Node(18.006003, -76.747264, "undercroft", null, false,false);
+//            uwiMap.graph.addVertex(undercoft);
+//
+//            Node studentServices = new Node(18.005742, -76.747603, "student services", null, false,false);
+//            uwiMap.graph.addVertex(studentServices);
+//
+//            Node inFrontOfStudentServices = new Node(18.005723, -76.747586, "infss", null, false, false);
+//            uwiMap.graph.addVertex(inFrontOfStudentServices);
+//
+//            Node fieldInt1 = new Node(18.005682, -76.747846, "fi", null, false,false);
+//            uwiMap.graph.addVertex(fieldInt1);
+//
+//            Node queenswayInt1 = new Node(18.005662, -76.747419, "q1", null, false,false);
+//            uwiMap.graph.addVertex(queenswayInt1);
+//
+//            Node queenswayInt3 = new Node(18.005454, -76.747713, "q3", null, false, false);
+//            uwiMap.graph.addVertex(queenswayInt3);
+//
+//            Node ped1 = new Node(18.005596, -76.748408, "ped1",null,true,true);
+//            uwiMap.graph.addVertex(ped1);
+//
+//
+//
+//            // ----------------------------------Edges------------------------------------------------------------
+//
+//            DefaultWeightedEdge qw3ToAssemb =uwiMap.graph.addEdge(queenswayInt3,assemblyHall);
+//            uwiMap.graph.setEdgeWeight(qw3ToAssemb, queenswayInt3.distanceTo(assemblyHall));
+//
+//            DefaultWeightedEdge adminToUnderCroft = uwiMap.graph.addEdge(admissions, undercoft);
+//            uwiMap.graph.setEdgeWeight(adminToUnderCroft, admissions.distanceTo(undercoft));
+//
+//            DefaultWeightedEdge adminToStudentServices = uwiMap.graph.addEdge(admissions,studentServices);
+//            uwiMap.graph.setEdgeWeight(adminToStudentServices, admissions.distanceTo(studentServices));
+//
+//            DefaultWeightedEdge ssToinFrontofsservice = uwiMap.graph.addEdge(inFrontOfStudentServices, studentServices);
+//            uwiMap.graph.setEdgeWeight(ssToinFrontofsservice, studentServices.distanceTo(inFrontOfStudentServices));
+//
+//            DefaultWeightedEdge i1Toss = uwiMap.graph.addEdge(fieldInt1, inFrontOfStudentServices);
+//            uwiMap.graph.setEdgeWeight(i1Toss, fieldInt1.distanceTo(inFrontOfStudentServices));
+//
+//            DefaultWeightedEdge ssToqw3 = uwiMap.graph.addEdge(inFrontOfStudentServices, queenswayInt1);
+//            uwiMap.graph.setEdgeWeight(ssToqw3, inFrontOfStudentServices.distanceTo(queenswayInt1));
+//
+//            DefaultWeightedEdge qw1Toqw3 = uwiMap.graph.addEdge(queenswayInt1, queenswayInt3);
+//            uwiMap.graph.setEdgeWeight(qw1Toqw3, queenswayInt1.distanceTo(queenswayInt3));
+//
+//            DefaultWeightedEdge fieldInt1ToPed1 = uwiMap.graph.addEdge(ped1, fieldInt1);
+//            uwiMap.graph.setEdgeWeight(fieldInt1ToPed1, ped1.distanceTo(fieldInt1));
+//
+//            DefaultWeightedEdge fieldInt1ToQw3 = uwiMap.graph.addEdge(queenswayInt3, fieldInt1);
+//            uwiMap.graph.setEdgeWeight(fieldInt1ToQw3, queenswayInt1.distanceTo(fieldInt1));
 
 
             //----------------------------------INIT START-END For Pathfinder------------------------------------------
 
-            uwiMap.start =queenswayInt3 ;
-            uwiMap.end =undercoft;
-
-            uwiMap.locationOnMap = ped1.getLocation();
-            uwiMap.headingOnMap = 0.00f;
-
-
+//            uwiMap.start =queenswayInt3 ;
+//            uwiMap.end =undercoft;
+//
+//            uwiMap.locationOnMap = ped1.getLocation();
+//            uwiMap.headingOnMap = 0.00f;
         }
 
         return uwiMap;
+    }
+
+    public void node2Vertex(){
+        //TODO: get edges and nodes and contruct a graph.
+        for(Node node: nodesOnMap){
+            uwiMap.graph.addVertex(node);
+        }
+
+    }
+
+    private Node getNodeByID(int id){
+        for(int i = 0; i<nodesOnMap.size(); i++) {
+              if(id == nodesOnMap.get(i).getNode_id()){
+                 node =  nodesOnMap.get(i);
+              }
+        }
+        return node;
+    }
+
+    private Edge getEdgeByID(int id){
+        for (int i=0; i<edgesOnMap.size(); i++){
+            if(id == edgesOnMap.get(i).getEdge_id()){
+                edge = edgesOnMap.get(i);
+            }
+        }
+        return edge;
+    }
+
+
+    public void modelEdge2GraphEdge(){
+
+        for(Edge edge : edgesOnMap){
+            //TODO: uwiMap.graph.addEdge()
+            Node startNode = getNodeByID(edge.getStart_node_id());
+            Node endNode = getNodeByID(edge.getEnd_node_id());
+            edgeList.add(indx2, uwiMap.graph.addEdge(startNode, endNode));
+            indx2++;
+            edgeList.add(indx2, uwiMap.graph.addEdge(endNode,startNode));
+            indx2++;
+
+        }
     }
 
     /*TODO: get real-time feedback on current edge from user (good, crowded, hard to navigate, flooded)
@@ -158,6 +228,16 @@ public class UWIMap {
         return uwiMap;
     }
 
+
+    public static boolean addNodeToMap(Node node) {
+        UWIMap.nodesOnMap.add(node);
+        return true;
+    }
+
+    public static boolean addEdgeToMap(Edge edge) {
+        UWIMap.edgesOnMap.add(edge);
+        return true;
+    }
 
     public void setNodeAsDestination(){end.setAsDestination();}
 
@@ -290,8 +370,6 @@ public class UWIMap {
     }
 
     //TODO: create method that creates a temporary map with data from from the server.
-
-
 
 
 

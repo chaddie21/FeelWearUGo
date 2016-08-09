@@ -14,10 +14,7 @@ import android.os.IBinder;
 import android.speech.tts.TextToSpeech;
 import android.telephony.SmsManager;
 import android.util.Log;
-import android.view.View;
 import android.widget.Toast;
-
-import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.Locale;
 
@@ -186,6 +183,9 @@ public class LocalizationService extends Service implements TextToSpeech.OnInitL
 
         public void onLocationChanged(final Location loc) {
             final Handler handler = new Handler();
+            final String SEND_LOCATION = "SEND_LOCATION";
+            Intent intent = new Intent(SEND_LOCATION);
+
 
             if (isBetterLocation(loc, previousBestLocation)) {
 
@@ -197,27 +197,32 @@ public class LocalizationService extends Service implements TextToSpeech.OnInitL
                 speakString(getNodeNotification(loc));
                 speakString(isTooFast(loc.getSpeed()));
 
+                intent.putExtra("latitude", loc.getLatitude());
+                intent.putExtra("longitude", loc.getLongitude());
+                intent.putExtra("accuracy", loc.getAccuracy());
+                sendBroadcast(intent);
 
 
-                final Runnable updateGUI = new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(getApplicationContext(), "latitude:" + loc.getLatitude()
-                                + " Longitude:" + loc.getLongitude() + " Provider:"
-                                + loc.getProvider()+ (loc.hasBearing()? " Bearing:"+loc.getBearing():"")
-                                +(loc.hasSpeed()? "Speed:"+loc.getSpeed()+"m/s":"")+"Accuracy:"+loc.getAccuracy()+""+getNodeNotification(loc)+"", Toast.LENGTH_SHORT).show();
-                    }
-                };
 
-                final Runnable updateToast = new Runnable() {
-                    @Override
-                    public void run() {
-                        handler.post(updateGUI);
-                    }
-                };
-
-                Thread thread = new Thread(null, updateToast, "Toast_background");
-                thread.start();
+//                final Runnable updateGUI = new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        Toast.makeText(getApplicationContext(), "latitude:" + loc.getLatitude()
+//                                + " Longitude:" + loc.getLongitude() + " Provider:"
+//                                + loc.getProvider()+ (loc.hasBearing()? " Bearing:"+loc.getBearing():"")
+//                                +(loc.hasSpeed()? "Speed:"+loc.getSpeed()+"m/s":"")+"Accuracy:"+loc.getAccuracy()+""+getNodeNotification(loc)+"", Toast.LENGTH_SHORT).show();
+//                    }
+//                };
+//
+//                final Runnable updateToast = new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        handler.post(updateGUI);
+//                    }
+//                };
+//
+//                Thread thread = new Thread(null, updateToast, "Toast_background");
+//                thread.start();
             }
 
         }

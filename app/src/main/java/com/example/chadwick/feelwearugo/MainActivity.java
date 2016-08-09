@@ -4,6 +4,9 @@ package com.example.chadwick.feelwearugo;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import java.lang.Thread;
+
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -20,8 +23,6 @@ import android.os.IBinder;
 import android.os.Message;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
-import android.support.v4.content.LocalBroadcastManager;
-import android.telephony.SmsManager;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.Menu;
@@ -32,10 +33,10 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.net.HttpURLConnection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 // for the text to speech interface
 
@@ -172,10 +173,15 @@ Usage:
     private final String URL_TO_HIT = "http://104.155.128.82";
     private String URL_TO_HIT2 = "http://104.155.128.82/ids/?";
     private final static String TAG = "Main-Activity";
+    private static final boolean D = true;
+
 
     private final int REQ_CODE_SPEECH_INPUT = 100;
     private final int REQ_CODE_SPEECH_INPUT2= 101;
     private final int REQ_CODE_SPEECH_INPUT3= 102;
+    private static final int REQUEST_CONNECT_DEVICE = 1;
+    private static final int REQUEST_ENABLE_BT = 2;
+
     private BroadcastReceiver receiver;
     private Button speakButton;
     public String spokenWords;
@@ -192,6 +198,34 @@ Usage:
 
     //----------------------------Singleton pattern instantiation-----------------------------------
            UWIMap uwiMap = UWIMap.getUWIMap();
+    //----------------------------Broadcast receiver -----------------------------------------------
+    double latitude,longitude, finalLatitude, finalLongitude;
+    float accuracy, finalAccuracy;
+    boolean isPlace = false;
+    boolean isBusTerminal = false;
+    boolean isRestRoom = false;
+    boolean isIntersection = false;
+
+    //-----------------------------Bluetooth Connection---------------------------------------------
+    private BluetoothAdapter bluetoothAdapter = null;
+    private static BluetoothCommunication btComm;
+    private static Set<BluetoothDevice> newDevices;
+    private Set<BluetoothDevice> pairedDevices;
+
+    // Message types sent from the BluetoothReadService Handler
+    public static final int MESSAGE_STATE_CHANGE = 1;
+    public static final int MESSAGE_READ = 2;
+    public static final int MESSAGE_WRITE = 3;
+    public static final int MESSAGE_DEVICE_NAME = 4;
+    public static final int MESSAGE_TOAST = 5;
+    public static final boolean DEBUG = true;
+
+
+
+    // Key names received from the BluetoothChatService Handler
+    public static final String DEVICE_NAME = "device_name";
+    public static final String EXTRA_DEVICE_ADDRESS = "device_address";
+    public static final String TOAST = "toast";
 
 
     @Override
@@ -238,7 +272,7 @@ Usage:
 
         //-------------Speak Button---------------------------
 
-                speakButton.setOnTouchListener(
+            speakButton.setOnTouchListener(
                     new OnSwipeTouchListener(this) {
                         @Override
                         public void onSwipeUp() {
@@ -250,13 +284,14 @@ Usage:
                             speakString("So user, where would you like to go?");
                             Log.i(TAG, "downward Swipe");
                             //Todo: make http Request
-                            new ConnectionTask().execute(URL_TO_HIT);
+                            //new ConnectionTask().execute(URL_TO_HIT);
                         }
 
                         public void onSwipeLeft() {
+                            URL_TO_HIT2 = "http://104.155.128.82/ids/?";
                             speakString("source node ID");
-                            URL_TO_HIT2 = URL_TO_HIT2+"a=100"+"&";
-                            //speechInput();
+                            //URL_TO_HIT2 = URL_TO_HIT2+"a=100"+"&";
+                            speechInput();
                             //TODO:
 //                            Intent sendText = new Intent(Intent.ACTION_VIEW);
 
@@ -274,10 +309,10 @@ Usage:
 //                            }
                         }
                         public void onSwipeRight(){
-                            URL_TO_HIT2 += "b=96";
-                            new ConnectionTask().execute(URL_TO_HIT2);
+                            //URL_TO_HIT2 += "b=96";
+                            //new ConnectionTask().execute(URL_TO_HIT2);
                             speakString("target node ID");
-                            //speechInput2();
+                            speechInput2();
                         }
                     }
             );
@@ -287,11 +322,18 @@ Usage:
 
 
     //--------------------------pedometer Initialization-----------------------------
-        mPedometerSettings = new PedometerSettings("m",0.762f,6.0f,true,true);
-        mStepValue =0;
-        mPaceValue =0;
+//        mPedometerSettings = new PedometerSettings("m",0.762f,6.0f,true,true);
+//        mStepValue =0;
+//        mPaceValue =0;
 
-    //-------------------------------------------------------------------------------
+        //-------------------------------------------------------------------------------
+        //TODO: download 3km radius map if internet connection
+        //TODO: search for nearest node in file
+        //TODO: if
+        // ---------------------------------------------------------------------------
+
+        btComm = new BluetoothCommunication(this, mHandler);
+
     }
 
     @Override
@@ -323,7 +365,7 @@ Usage:
     @Override
     public void onResume(){
         super.onResume();
-
+        Log.e(TAG, "+ ON RESUME +");
         IntentFilter intentFilter = new IntentFilter(
                 "android.intent.action.MAIN");
 
@@ -350,7 +392,7 @@ Usage:
                 bindStepService();
             }
        }catch(RuntimeException e){
-
+            e.printStackTrace();
        }
     }
 
@@ -397,7 +439,7 @@ Usage:
         if(ttObj != null){
             ttObj.shutdown();
         }
-
+        this.unregisterReceiver(mReceiver);
         Log.i(TAG, "Activity has been shutdown");
     }
 
@@ -416,6 +458,121 @@ Usage:
             Log.e("TTS", "Initialization Failed");
         }
     }
+
+//    public void enableBluetooth(){
+//        if(!bluetoothAdapter.isEnabled()) {
+//            bluetoothAdapter.enable();
+//            Toast.makeText(this, "Bluetooth enabled", Toast.LENGTH_SHORT).show();
+//        }
+//    }
+
+
+    //Replacement for onItemClick bluetooth devices dialog
+//    private void streetConnectDeviceConnection(Set<BluetoothDevice> devices){
+//        bluetoothAdapter.cancelDiscovery();
+//        for (BluetoothDevice device: devices){
+//            //To ensure that only address of the Street Connect Device
+//            if(device.getName().equals("")){
+//                Intent intent = new Intent();
+//                intent.putExtra(EXTRA_DEVICE_ADDRESS, device.getAddress());
+//                setResult(Activity.RESULT_OK, intent);
+//            }else{
+//                setResult(Activity.RESULT_CANCELED);
+//            }
+//        }
+//        finish();
+//    }
+
+//    private void doDiscovery(){
+//        if (DEBUG) Log.d(TAG, "doDiscovery()");
+//        if(bluetoothAdapter.isDiscovering()){
+//            bluetoothAdapter.cancelDiscovery();
+//        }
+//        bluetoothAdapter.startDiscovery();
+//    }
+
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+
+            // When discovery finds a device
+            if(BluetoothDevice.ACTION_FOUND.equals(action)){
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if(device.getBondState() != BluetoothDevice.BOND_BONDED){
+                    newDevices.add(device);
+                }
+            }else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)){
+
+            }
+        }
+    };
+
+    public void connectService(){
+        try{
+            makeToast("Bluetooth connecting...");
+            BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+            if(bluetoothAdapter.isEnabled()){
+                btComm.start();
+                btComm.connectDevice("HC-06");
+                Log.d(TAG, "BTService started - listening");
+                makeToast("Bluetooth connected");
+            }
+            else{
+                Log.w(TAG, "BtService started - bluetooth is not enabled");
+                makeToast("Bluetooth not enabled");
+            }
+        }catch (Exception e){
+            Log.e(TAG, "Unable to start btComm", e);
+            makeToast("Unable to connect to Bluetooth "+ e);
+        }
+    }
+
+
+    private final Handler mHandlerBT = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            switch(msg.what){
+                case MESSAGE_STATE_CHANGE: {
+                    if (DEBUG) Log.i(TAG, "MESSAGE_STATE_CHANGE: " + msg.arg1);
+
+                    switch (msg.arg1) {
+                        case BluetoothCommunication.STATE_CONNECTED:
+                            break;
+                        case BluetoothCommunication.STATE_CONNECTING:
+                            //TODO:
+                            break;
+                        case BluetoothCommunication.STATE_LISTEN:
+                            break;
+                        case BluetoothCommunication.STATE_NONE:
+                            break;
+                    }
+                    break;
+                }
+
+                case MESSAGE_WRITE:
+                    Log.d(TAG, "MESSAGE_WRITE ");
+                    break;
+                case MESSAGE_READ:
+                    Log.d(TAG, "MESSAGE_READ ");
+                    break;
+                case MESSAGE_DEVICE_NAME:
+                    Log.d(TAG, "MESSAGE_DEVICE_NAME "+msg);
+                    break;
+                case MESSAGE_TOAST: {
+                    Log.d(TAG, "MESSAGE_TOAST " + msg);
+                    makeToast(msg.getData().getString(TOAST));
+                    break;
+                }
+            }
+        }
+    };
+
+
+
+
+
+
 
     public void speechInput(){
 
@@ -464,10 +621,11 @@ Usage:
 
                     spokenWords = result.get(0);
                     speakString(spokenWords);
-                    speakString("did you say node ID" +spokenWords);
+                    speakString("did you say node ID" +spokenWords+". if not, please record again");
                     sendSpokenWords.putExtra("SpokenWords",spokenWords);
                     sendBroadcast(sendSpokenWords);
                     URL_TO_HIT2 = URL_TO_HIT2+"a="+spokenWords+"&";
+                    Log.d("speech input 2", "");
                     //setEndNode(spokenWords);
 
 
@@ -497,19 +655,36 @@ Usage:
 
             case REQ_CODE_SPEECH_INPUT2: {
                 if (resultCode == RESULT_OK && null != data) {
-
                     ArrayList<String> result = data
                             .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
                     spokenWords = result.get(0);
-                    speakString("did you say target node ID" +spokenWords);
+                    speakString("did you say target node ID" +spokenWords+". if not, please record again");
                     URL_TO_HIT2 += "b="+spokenWords;
                     new ConnectionTask().execute(URL_TO_HIT2);
                     //setStartNode(spokenWords);
-
+                    Log.d("speech input 2", "");
                 }
                 break;
             }
+            case REQUEST_CONNECT_DEVICE:{
+                if(requestCode == Activity.RESULT_OK){
+                    String address = data.getExtras().getString(MainActivity.EXTRA_DEVICE_ADDRESS);
+                    BluetoothDevice device = bluetoothAdapter.getRemoteDevice(address);
+                    btComm.connect(device);
+                }
+                break;
+            }
+            case REQUEST_ENABLE_BT:{
+                break;
+            }
         }
+    }
+
+
+
+
+    public void makeToast(String message){
+        Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show();
     }
 
     private void setEndNode(String nameOfNode){
@@ -542,11 +717,11 @@ Usage:
         }
     }
 
-       @SuppressWarnings("deprecations")
+
+    @SuppressWarnings("deprecations")
     public void speakString( String string) {
         ttObj.speak(string,TextToSpeech.QUEUE_FLUSH,null);
     }
-
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
     public void speakString21( CharSequence string) {
@@ -579,7 +754,7 @@ Usage:
 
     //------------------------------------ pedometer methods-------------------------------------------------------------
 
-    private void savePaceSetting() {
+        private void savePaceSetting() {
      //TODO implement this method
      }
 
@@ -695,6 +870,19 @@ Usage:
     private static final int SPEED_MSG = 4;
 
 
+    private class MyReceiver extends BroadcastReceiver {
+        Intent intent;
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            //TODO: change to double
+            latitude = intent.getDoubleExtra("latitude", 0);
+            longitude = intent.getDoubleExtra("longitude", 0);
+            accuracy = intent.getFloatExtra("accuracy", 0);
+        }
+    }
+
+
+
     private Handler mHandler = new Handler(){
 
         @Override
@@ -776,5 +964,7 @@ Usage:
             }
         }
     };
+
+
 
 }

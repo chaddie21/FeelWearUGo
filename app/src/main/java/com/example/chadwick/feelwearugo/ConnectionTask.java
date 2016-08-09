@@ -1,7 +1,6 @@
 package com.example.chadwick.feelwearugo;
 
 import android.app.ProgressDialog;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -15,19 +14,17 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
-import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-
-
 /**
  * Created by Photonovation on 07/12/2016.
  */
-public class ConnectionTask extends AsyncTask<String, String, List<Node> >{
+public class ConnectionTask extends AsyncTask<String, String, Boolean>{
     private ProgressDialog dialog;
     private final String URL_TO_HIT = "http://104.155.128.82";
     private String ROUTE_URL = "http://104.155.128.82/ids/";
+    UWIMap uwiMap = UWIMap.getUWIMap();
 
     List<Node> pathList = null;
 
@@ -40,9 +37,10 @@ public class ConnectionTask extends AsyncTask<String, String, List<Node> >{
     }
 
     @Override
-    protected List<Node> doInBackground(String... params) {
+    protected Boolean doInBackground(String... params) {
         HttpURLConnection connection = null;
         BufferedReader reader= null;
+        boolean status = false;
 
 
         try{
@@ -86,15 +84,12 @@ public class ConnectionTask extends AsyncTask<String, String, List<Node> >{
                 String name = object.getString("1");
                 double latitude = object.getDouble("2");
                 double longitude = object.getDouble("3");
-                Node node = new Node(node_id, name, latitude, longitude);
-                pathList2.add(node);
-
-                Log.d("doInBackground", node.toString());
+                status = uwiMap.addNodeToMap(new Node(node_id, name, latitude, longitude));
             }
 
 //            Log.d("doInBackground", pathList2.toString());
 
-            return pathList2;
+            return status;
 
         }
         catch (MalformedURLException e){
@@ -122,29 +117,26 @@ public class ConnectionTask extends AsyncTask<String, String, List<Node> >{
         return null;
     }
     @Override
-    protected void onPostExecute(final List<Node> result){
+    protected void onPostExecute(final Boolean result){
         super.onPostExecute(result);
-        //dialog.dismiss();
-
-         try {
-             Log.d("onPostExecute", result.toString());
-             createPathList2(result);
-
-
-             //_____________TEMPORARY SOLUTION for MGI demo______________
-
-
-             PathFinder pathFinder = new PathFinder();
-             float[] bearings = pathFinder.getPathBearingTemp(result);
-             float[] nextTurn = pathFinder.setNextTurnAngles(bearings);
-             pathFinder.setNextTurnInstructionTemp(nextTurn, result);
-
-             Log.d("Node location", pathFinder.getLats(result));
-
-
-         }catch (NullPointerException e){
-             e.printStackTrace();
-         }
+//        //dialog.dismiss();
+//
+//         try {
+//             Log.d("onPostExecute", result.toString());
+//             createPathList2(result);
+//
+//             //_____________TEMPORARY SOLUTION for MGI demo______________
+//             PathFinder pathFinder = new PathFinder();
+//             float[] bearings = pathFinder.getPathBearingTemp(result);
+//             float[] nextTurn = pathFinder.setNextTurnAngles(bearings);
+//             pathFinder.setNextTurnInstructionTemp(nextTurn, result);
+//
+//             Log.d("Node location", pathFinder.getLats(result));
+//
+//
+//         }catch (NullPointerException e){
+//             e.printStackTrace();
+//         }
     }
 
     public List<Node> getPathList2(){

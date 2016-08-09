@@ -82,9 +82,15 @@ public class PathFinder {
     }
 
     public String getLats(List<Node> pathList){
-        String list= pathList.get(1).toString();
-        for(int i = 0; i<pathList.size();i++) {
-            list += " "+pathList.get(i).getLocation()+", ";
+        String list="";
+        try {
+            list= pathList.get(1).toString();
+            for (int i = 0; i < pathList.size(); i++) {
+                list += " " + pathList.get(i).getLocation() + ", ";
+
+            }
+        }catch (IndexOutOfBoundsException e){
+            e.printStackTrace();
         }
 
         return list;
